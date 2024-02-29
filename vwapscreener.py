@@ -2019,6 +2019,48 @@ color_dict = {
 
 }# More intense red for higher negative
 
+
+def calculate_trama(data, window):
+    trama = []
+    ama = data['Close'].rolling(window=window, min_periods=10).mean()  # Add min_periods=1 to handle NaN values
+    hh = (data['Close'] - data['Close'].shift(10)).clip(lower=0)
+    ll = (-1 * (data['Close'] - data['Close'].shift(10))).clip(lower=0)
+    for i in range(len(data)):
+        if not pd.isna(ama[i]):  # Check for NaN in AMA
+            trama.append(ama[i] + ((hh[i] + ll[i]) / window) * (data['Close'][i] - ama[i]))
+        else:
+            trama.append(np.nan)  # Handle NaN in TRAMA
+    return trama
+
+def fetch_and_calculate(symbol):
+    data = yf.download(symbol, period="1d", interval="15m", progress=False)
+
+    if not data.empty:
+        # Calculate TRAMA lines for 50 and 99 periods
+        data['trama_50'] = calculate_trama(data, 50)
+        data['trama_99'] = calculate_trama(data, 99)
+    return data
+
+def check_trama_signal(data):
+    # Ensure there is at least one row of data and the TRAMA columns exist
+    if not data.empty and 'trama_50' in data.columns and 'trama_99' in data.columns:
+        last_row = data.iloc[-1]  # Access the last row directly
+        trama_50_last = last_row['trama_50']
+        trama_99_last = last_row['trama_99']
+
+        # Make sure the last TRAMA values are not NaN (which means they were calculated)
+        if not pd.isna(trama_50_last) and not pd.isna(trama_99_last):
+            if trama_50_last > trama_99_last:
+                return "Bullish"
+            else:
+                return "Bearish"
+        else:
+            return "No Signal"
+    else:
+        return "No Signal"
+
+
+
 class StockScreenerApp:
     def __init__(self, master, watchlist):
         self.master = master
@@ -2043,11 +2085,13 @@ class StockScreenerApp:
         self.refresh_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.add_screener("VWAP Screener")
+        self.add_detailed_view("Stock Signal Screener")  # Add the new tab
 
     def add_detailed_view(self, title):
         frame = ttk.Frame(self.container)
         self.container.add(frame, text=title)
         self.create_detailed_view(frame)
+        self.create_trama_screener(frame)  # Create the TRAMA screener in the detailed view
 
     def create_detailed_view(self, parent):
         # Example content for the new tab
@@ -2086,10 +2130,46 @@ class StockScreenerApp:
 
         self.populate_data(self.tree)
 
+    def create_trama_screener(self, parent):
+        # Define Treeview for TRAMA screener
+        columns = ('Symbol', 'Signal')
+        self.trama_tree = ttk.Treeview(parent, columns=columns, show='headings')
+
+        # Configure column headings and widths
+        self.trama_tree.heading('Symbol', text='Symbol', anchor='center')
+        self.trama_tree.column('Symbol', minwidth=0, width=200, stretch=tk.NO, anchor='center')
+
+        self.trama_tree.heading('Signal', text='Signal', anchor='center')
+        self.trama_tree.column('Signal', minwidth=0, width=280, stretch=tk.NO, anchor='center')
+
+        self.trama_tree.pack(fill=tk.BOTH, expand=True)
+
+        self.populate_trama_data(self.trama_tree)
+
+    def populate_trama_data(self, tree):
+        for symbol in self.watchlist:
+            data = fetch_and_calculate(symbol)
+            signal = check_trama_signal(data)
+            if not data.empty:
+                # Determine the color based on the signal
+                if signal == "Bullish":
+                    color = "#BBDCA7"  # Bullish stocks are green
+                elif signal == "Bearish":
+                    color = "#E7B7B7"  # Bearish stocks are red
+                else:
+                    color = ""  # Default color for other signals
+                tree.insert('', tk.END, values=(symbol, signal), tags=(symbol,))
+                tree.tag_configure(symbol, background=color)
+
     def refresh_all(self):
         for i in self.tree.get_children():
             self.tree.delete(i)
         self.populate_data(self.tree)
+        if self.trama_tree:
+            for i in self.trama_tree.get_children():
+                self.trama_tree.delete(i)
+            self.populate_trama_data(self.trama_tree)
+
 
     def populate_data(self, tree):
         for symbol in self.watchlist:
@@ -2122,5 +2202,4 @@ watchlist = ['SPY', 'QQQ', 'TSLA', 'NVDA', 'PYPL', 'FITB', 'JD', 'BABA', 'ABNB',
 if __name__ == "__main__":
     root = tk.Tk()
     app = StockScreenerApp(root, watchlist)
-    app.add_detailed_view("Stock Signal Screener")  # Add the new tab
     root.mainloop()
