@@ -1,15 +1,3 @@
-"""
-TO DO LIST:
-
-☐ Diversify functions into their own scripts to be called and debloat main.py
-☐ FIX "DISPLAY CHART" BUTTON
-☐ Bring over screeners
-☐ Bring over Gamma curve chart and add volatility line
-☐ Create refresh feature to re-derive data
-☐
-
-
-"""
 
 
 ####################################################################################################################
@@ -27,7 +15,7 @@ import subprocess
 import tkinter
 from gammacurve import main
 from openinterest import main1
-
+from charting import main3
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ####################################################################################################################
 
@@ -186,6 +174,8 @@ def submit():
             display_chart_button.hide(),
             text_edit.append("Data fetched and displayed.\n")
             display_chart_button2.hide()
+            text_edit.append("Data fetched and displayed.\n")
+            #display_chart_button3.hide()
     else:
         text_edit.append(f"No current stock price data available for {symbol}\n")
 
@@ -247,6 +237,46 @@ def displayOI():
 
 
 
+####################################
+''''''''''''''''''''''''''''''''''''
+# Plots the Open interest in a negative and positive histogram format
+''''''''''''''''''''''''''''''''''''
+####################################
+
+
+def displaycharting():
+    ticker_symbol = line_edit.text().strip()
+    if ticker_symbol:
+        try:
+            main3(ticker_symbol)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+    else:
+        print("Please enter a ticker symbol.")
+
+
+####################################
+''''''''''''''''''''''''''''''''''''
+# Plots the Implied Volatility Skew
+''''''''''''''''''''''''''''''''''''
+####################################
+
+
+
+
+def displayIVskew():
+    ticker_symbol = line_edit.text().strip()
+    if ticker_symbol:
+        try:
+            main2(ticker_symbol)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+    else:
+        print("Please enter a ticker symbol.")
+
+
+
+
 
 ####################################
 ''''''''''''''''''''''''''''''''''''
@@ -261,7 +291,7 @@ import subprocess
 
 def run_screener(self):
     try:
-        subprocess.run([sys.executable, "vwapscreener.py"], check=True)
+        subprocess.run([sys.executable, "screeners.py"], check=True)
         print("VWAP screener script completed successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Error running VWAP screener script: {e}")
@@ -915,16 +945,19 @@ main_layout.addWidget(table)
 
 display_chart_button = QPushButton("Display Gamma Curve")
 display_chart_button.clicked.connect(displayGammaCurve)
-display_chart_button.hide()
 main_layout.addWidget(display_chart_button)
 
 display_chart_button2 = QPushButton("Open Interest by Strike")
 display_chart_button2.clicked.connect(displayOI)
-display_chart_button2.hide()
 main_layout.addWidget(display_chart_button2)
 
+#display_chart_button3 = QPushButton("Implied Volatility Skew")
+#display_chart_button3.clicked.connect(displayIVskew)
+#main_layout.addWidget(display_chart_button3)
 
-
+display_chart_button4 = QPushButton("% Deviation Levels")
+display_chart_button4.clicked.connect(displaycharting)
+main_layout.addWidget(display_chart_button4)
 
 
 window.setLayout(main_layout)
